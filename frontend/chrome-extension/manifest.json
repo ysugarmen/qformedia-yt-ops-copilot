@@ -1,0 +1,26 @@
+{
+    "manifest_version": 3,
+    "name": "QforMedia YouTube Studio Sidebar",
+    "version": "0.0.1",
+    "description": "Sidebar checklist + templates + LLM actions for YouTube Studio video details.",
+    "permissions": ["storage"],
+    "host_permissions": ["https://studio.youtube.com/*", "http://localhost:8000/*"],
+    "background": {
+      "service_worker": "background.js",
+      "type": "module"
+    },
+    "content_scripts": [
+      {
+        "matches": ["https://studio.youtube.com/*"],
+        "js": ["content.js"],
+        "run_at": "document_idle"
+      }
+    ],
+    "web_accessible_resources": [
+      {
+        "resources": ["chunks/*.js", "assets/*.css", "assets/*", "icon-128.png"],
+        "matches": ["https://studio.youtube.com/*"]
+      }
+    ]
+  }
+  
