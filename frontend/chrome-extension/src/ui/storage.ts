@@ -1,4 +1,4 @@
-import type { Settings, Template, ScanRecord } from "./types";
+import type { Settings, ScanRecord } from "./types";
 
 const KEYS = {
   settings: "qfm_settings",
@@ -30,14 +30,6 @@ export async function getSettings(): Promise<Settings> {
 export async function setSettings(patch: Partial<Settings>) {
   const current = await getSettings();
   await chromeStorageSet(KEYS.settings, { ...current, ...patch });
-}
-
-export async function getTemplates(): Promise<Template[]> {
-  return (await chromeStorageGet<Template[]>(KEYS.templates)) ?? [];
-}
-
-export async function setTemplates(next: Template[]) {
-  await chromeStorageSet(KEYS.templates, next);
 }
 
 export async function getHistory(): Promise<ScanRecord[]> {

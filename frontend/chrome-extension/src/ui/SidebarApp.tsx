@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSettings, setSettings } from "./storage";
 import { ScanTab } from "./tabs/ScanTab";
-import { TemplatesTab } from "./tabs/TemplatesTab";
 import { LlmTab } from "./tabs/LlmTab";
 
 type TabKey = "scan" | "templates" | "llm";
@@ -54,12 +53,6 @@ export default function SidebarApp() {
                 <button className={tab === "scan" ? "active" : ""} onClick={() => setTab("scan")}>
                     Scan
                 </button>
-                <button
-                    className={tab === "templates" ? "active" : ""}
-                    onClick={() => setTab("templates")}
-                >
-                    Templates
-                </button>
                 <button className={tab === "llm" ? "active" : ""} onClick={() => setTab("llm")}>
                     LLM
                 </button>
@@ -67,7 +60,6 @@ export default function SidebarApp() {
 
             <div className="qfm-content">
                 {tab === "scan" && <ScanTab backendUrl={backendUrl} />}
-                {tab === "templates" && <TemplatesTab />}
                 {tab === "llm" && <LlmTab backendUrl={backendUrl} />}
             </div>
 

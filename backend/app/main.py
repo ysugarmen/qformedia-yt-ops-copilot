@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import init_db, get_engine
 from app.core.config import get_settings
-from app.routes import templates, rules, llm
+from app.routes import rules, llm
 
 
 @asynccontextmanager
@@ -35,7 +35,6 @@ def health():
     return {"ok": True}
 
 
-app.include_router(templates.router)
 app.include_router(rules.router)
 app.include_router(llm.router)
 

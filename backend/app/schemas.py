@@ -2,18 +2,6 @@ from pydantic import BaseModel, Field
 from typing import Literal, Optional, List
 
 
-class TemplateCreate(BaseModel):
-    name: str
-    kind: str
-    content: str
-
-
-class TemplateUpdate(BaseModel):
-    name: str
-    kind: str
-    content: str
-
-
 class VideoMetadata(BaseModel):
     platform: Literal["youtube-studio"] = "youtube-studio"
     videoId: str

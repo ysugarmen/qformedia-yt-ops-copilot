@@ -3,11 +3,6 @@ export type Settings = {
     collapsed?: boolean;
   };
   
-export type Template = {
-    id: string;
-    name: string;
-    body: string;
-};
   
 export type ScanRecord = {
     id: string;
