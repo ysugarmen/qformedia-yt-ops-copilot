@@ -19,7 +19,6 @@ def llm_suggest(
     client: OpenAI = Depends(get_openai_client),
 ):
     try:
-        print(req.video)
         return suggest(client=client, model=settings.OPENAI_MODEL, req=req)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

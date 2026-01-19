@@ -53,17 +53,6 @@ def _schema_for_task(task: str) -> dict:
             "additionalProperties": False,
         }
 
-    if task == "pinned_comment":
-        return {
-            "type": "object",
-            "properties": {
-                "pinned_comment": {"type": "string"},
-                **base_notes,
-            },
-            "required": ["pinned_comment", "notes"],  # <-- include notes
-            "additionalProperties": False,
-        }
-
     # rewrite_description
     return {
         "type": "object",

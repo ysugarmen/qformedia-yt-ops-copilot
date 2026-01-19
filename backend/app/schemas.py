@@ -28,7 +28,7 @@ class LlmTask(str):
 
 
 class LlmSuggestRequest(BaseModel):
-    task: Literal["rewrite_description", "chapters", "pinned_comment"]
+    task: Literal["rewrite_description", "chapters"]
     video: VideoMetadata
     styleProfile: Optional[str] = None
 
@@ -41,5 +41,4 @@ class Chapter(BaseModel):
 class LlmSuggestResponse(BaseModel):
     description: Optional[str] = None
     chapters: Optional[List[Chapter]] = None
-    pinned_comment: Optional[str] = None
     notes: List[str] = Field(default_factory=list)

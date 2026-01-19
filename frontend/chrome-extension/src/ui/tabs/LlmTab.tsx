@@ -2,7 +2,7 @@ import { useState } from "react";
 
 type Props = { backendUrl: string };
 
-type SuggestKind = "chapters" | "rewrite_description" | "pinned_comment";
+type SuggestKind = "chapters" | "rewrite_description";
 
 type MetaPayload = Partial<{
   videoId: string;
@@ -96,7 +96,7 @@ export function LlmTab({ backendUrl }: Props) {
         ? data?.description ?? JSON.stringify(data, null, 2)
         : kind === "chapters"
           ? JSON.stringify(data?.chapters ?? data, null, 2)
-          : data?.pinned_comment ?? JSON.stringify(data, null, 2);
+          : JSON.stringify(data, null, 2);
 
     setResult(text);
     setStatus("Done.");
@@ -105,9 +105,8 @@ export function LlmTab({ backendUrl }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button onClick={() => requestSuggestion("chapters")}>Chapters</button>
+        <button onClick={() => requestSuggestion("chapters")}>Split into Chapters</button>
         <button onClick={() => requestSuggestion("rewrite_description")}>Rewrite Description</button>
-        <button onClick={() => requestSuggestion("pinned_comment")}>Pinned Comment</button>
       </div>
 
       <div style={{ fontSize: 12, opacity: 0.8 }}>{status}</div>
