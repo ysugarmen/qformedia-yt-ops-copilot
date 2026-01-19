@@ -11,7 +11,6 @@ function isVideoDetailsPage(url: string) {
   const u = new URL(url);
   if (u.hostname !== "studio.youtube.com") return false;
 
-  // Matches: /video/<id>/edit or /video/<id>/details
   return /^\/video\/[^/]+\/(edit|details)/.test(u.pathname);
 }
 
@@ -48,7 +47,7 @@ function unmountSidebar() {
 }
 
 async function syncToRoute(url: string) {
-  // FIX: correct function name
+
   if (isVideoDetailsPage(url)) {
     await mountSidebar();
   } else {
@@ -56,16 +55,16 @@ async function syncToRoute(url: string) {
   }
 }
 
-// initial
+
 syncToRoute(location.href);
 
-// SPA-safe
+
 watchSpaRoutes((url) => syncToRoute(url));
 
-// UI <-> content: respond with metadata when asked
 window.addEventListener("message", (e: MessageEvent) => {
   if ((e.data as any)?.type === "QFM_GET_METADATA") {
     const payload = extractStudioMetadata();
     window.postMessage({ type: "QFM_METADATA", payload }, "*");
+    console.log("[QFM] sent metadata", payload);
   }
 });

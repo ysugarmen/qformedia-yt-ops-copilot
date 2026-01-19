@@ -20,6 +20,7 @@ class VideoMetadata(BaseModel):
     title: str
     description: str
     tags: List[str] = Field(default_factory=list)
+    durationSeconds: Optional[int] = None
 
 
 class LlmTask(str):
