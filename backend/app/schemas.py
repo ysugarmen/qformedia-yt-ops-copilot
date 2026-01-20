@@ -41,7 +41,4 @@ class LlmSuggestResponse(BaseModel):
     description: Optional[str] = None
     chapters: Optional[List[Chapter]] = None
     notes: List[str] = Field(default_factory=list)
-
-
-
-
+    

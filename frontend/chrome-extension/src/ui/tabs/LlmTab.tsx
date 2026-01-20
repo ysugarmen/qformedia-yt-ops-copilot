@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 
 type Props = { backendUrl: string };
 
-type SuggestKind = "chapters" | "rewrite_description";
+type SubTab = "chapters" | "description";
 
 type MetaPayload = Partial<{
   videoId: string;
@@ -49,32 +49,32 @@ async function getStudioMeta(timeoutMs = 2000): Promise<MetaPayload> {
 }
 
 export function LlmTab({ backendUrl }: Props) {
-  const [status, setStatus] = useState("");
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    {
-      id: uid(),
-      role: "assistant",
-      content:
-        "Use **Rewrite Description** to generate a first draft from your current video title/description.\nThen, tell me what you want to change (sections, tone, extra details, etc.) and I’ll refine it.",
-    },
-  ]);
+  const [subTab, setSubTab] = useState<SubTab>("description");
 
-  const [currentDraft, setCurrentDraft] = useState<string>("");
-  const [input, setInput] = useState<string>("");
-  const [busy, setBusy] = useState<boolean>(false);
+  // --- Description chat state (separate) ---
+  const [descStatus, setDescStatus] = useState("");
+  const [descBusy, setDescBusy] = useState(false);
+  const [descMessages, setDescMessages] = useState<ChatMsg[]>([]);
+  const [descInput, setDescInput] = useState("");
+  const [currentDraft, setCurrentDraft] = useState("");
 
-  const listRef = useRef<HTMLDivElement | null>(null);
+  // --- Chapters tool state (separate) ---
+  const [chapStatus, setChapStatus] = useState("");
+  const [chapBusy, setChapBusy] = useState(false);
+  const [chapResult, setChapResult] = useState("");
 
-  const scrollToBottom = () => {
+  const chatListRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollChatToBottom = () => {
     // slight delay so DOM updates first
     setTimeout(() => {
-      const el = listRef.current;
+      const el = chatListRef.current;
       if (!el) return;
       el.scrollTop = el.scrollHeight;
     }, 0);
   };
 
-  const videoContext = useMemo(() => {
+  const getVideoContext = useMemo(() => {
     return async () => {
       const meta = await getStudioMeta();
       const videoId = meta.videoId || getVideoIdFromUrl();
@@ -113,15 +113,15 @@ export function LlmTab({ backendUrl }: Props) {
     return await res.json();
   }
 
-  async function requestSuggestion(kind: SuggestKind) {
+  async function generateFirstDescription() {
     try {
-      setBusy(true);
-      setStatus(`Requesting ${kind}…`);
+      setDescBusy(true);
+      setDescStatus("Requesting rewrite_description…");
 
-      const vc = await videoContext();
+      const vc = await getVideoContext();
 
       const data = await callBackend({
-        task: kind,
+        task: "rewrite_description",
         video: {
           platform: "youtube-studio",
           videoId: vc.videoId,
@@ -133,58 +133,39 @@ export function LlmTab({ backendUrl }: Props) {
         styleProfile: null,
       });
 
-      if (kind === "rewrite_description") {
-        const draft = (data?.description ?? "").toString();
-        setCurrentDraft(draft);
+      const draft = (data?.description ?? "").toString();
+      setCurrentDraft(draft);
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: uid(),
-            role: "assistant",
-            content: draft || "(No description returned by backend.)",
-          },
-        ]);
-        scrollToBottom();
-      } else if (kind === "chapters") {
-        const chaptersText = JSON.stringify(data?.chapters ?? data, null, 2);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: uid(),
-            role: "assistant",
-            content: chaptersText,
-          },
-        ]);
-        scrollToBottom();
-      }
+      // reset chat for this new draft (clean separation)
+      setDescMessages(draft ? [{ id: uid(), role: "assistant", content: draft }] : []);
+      scrollChatToBottom();
 
-      setStatus("Done.");
+      setDescStatus("Done.");
     } catch (e: any) {
-      setStatus(`Error: ${e?.message ?? String(e)}`);
-      setMessages((prev) => [
+      setDescStatus(`Error: ${e?.message ?? String(e)}`);
+      setDescMessages((prev) => [
         ...prev,
         { id: uid(), role: "assistant", content: `❌ ${e?.message ?? String(e)}` },
       ]);
-      scrollToBottom();
+      scrollChatToBottom();
     } finally {
-      setBusy(false);
+      setDescBusy(false);
     }
   }
 
-  async function sendMessage() {
-    const text = input.trim();
-    if (!text || busy) return;
+  async function sendDescMessage() {
+    const text = descInput.trim();
+    if (!text || descBusy) return;
 
-    setInput("");
-    setMessages((prev) => [...prev, { id: uid(), role: "user", content: text }]);
-    scrollToBottom();
+    setDescInput("");
+    setDescMessages((prev) => [...prev, { id: uid(), role: "user", content: text }]);
+    scrollChatToBottom();
 
     try {
-      setBusy(true);
-      setStatus("Refining…");
+      setDescBusy(true);
+      setDescStatus("Refining…");
 
-      const vc = await videoContext();
+      const vc = await getVideoContext();
 
       const data = await callBackend({
         task: "rewrite_description",
@@ -201,7 +182,7 @@ export function LlmTab({ backendUrl }: Props) {
         chat: {
           currentDraft: currentDraft || null,
           messages: [
-            ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
+            ...descMessages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
             { role: "user", content: text },
           ],
         },
@@ -210,127 +191,226 @@ export function LlmTab({ backendUrl }: Props) {
       const nextDraft = (data?.description ?? "").toString();
       setCurrentDraft(nextDraft);
 
-      setMessages((prev) => [
+      setDescMessages((prev) => [
         ...prev,
-        { id: uid(), role: "assistant", content: nextDraft || "(No description returned by backend.)" },
+        { id: uid(), role: "assistant", content: nextDraft || "(No description returned.)" },
       ]);
-      scrollToBottom();
-      setStatus("Done.");
+      scrollChatToBottom();
+      setDescStatus("Done.");
     } catch (e: any) {
-      setStatus(`Error: ${e?.message ?? String(e)}`);
-      setMessages((prev) => [
+      setDescStatus(`Error: ${e?.message ?? String(e)}`);
+      setDescMessages((prev) => [
         ...prev,
         { id: uid(), role: "assistant", content: `❌ ${e?.message ?? String(e)}` },
       ]);
-      scrollToBottom();
+      scrollChatToBottom();
     } finally {
-      setBusy(false);
+      setDescBusy(false);
     }
   }
 
+  async function generateChapters() {
+    try {
+      setChapBusy(true);
+      setChapStatus("Requesting chapters…");
+      setChapResult("");
+
+      const vc = await getVideoContext();
+
+      const data = await callBackend({
+        task: "chapters",
+        video: {
+          platform: "youtube-studio",
+          videoId: vc.videoId,
+          title: vc.title,
+          description: vc.description,
+          tags: vc.tags,
+          ...(vc.durationSeconds != null ? { durationSeconds: vc.durationSeconds } : {}),
+        },
+        styleProfile: null,
+      });
+
+      setChapResult(JSON.stringify(data?.chapters ?? data, null, 2));
+      setChapStatus("Done.");
+    } catch (e: any) {
+      setChapStatus(`Error: ${e?.message ?? String(e)}`);
+      setChapResult(`❌ ${e?.message ?? String(e)}`);
+    } finally {
+      setChapBusy(false);
+    }
+  }
+
+  const SubTabButton = ({ id, label }: { id: SubTab; label: string }) => {
+    const active = subTab === id;
+    return (
+      <button
+        className={active ? "qfm-btn-primary" : "qfm-btn-secondary"}
+        style={{
+          padding: "8px 10px",
+          borderRadius: 12,
+        }}
+        onClick={() => setSubTab(id)}
+      >
+        {label}
+      </button>
+    );
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, height: "100%", minHeight: 0 }}>
+      {/* Sub-tabs inside LLM */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button className="qfm-btn-secondary" onClick={() => requestSuggestion("chapters")} disabled={busy}>
-          Split into Chapters
-        </button>
-        <button className="qfm-btn-secondary" onClick={() => requestSuggestion("rewrite_description")} disabled={busy}>
-          Rewrite Description
-        </button>
+        <SubTabButton id="description" label="Description" />
+        <SubTabButton id="chapters" label="Chapters" />
       </div>
 
-      <div className="qfm-muted">{status}</div>
-
-      {/* Chat thread */}
-      <div
-        ref={listRef}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflow: "auto",
-          border: "1px solid rgba(0,0,0,0.12)",
-          borderRadius: 14,
-          padding: 10,
-          background: "rgba(0,0,0,0.02)",
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-        }}
-      >
-        {messages.map((m) => {
-          const isUser = m.role === "user";
-          return (
-            <div
-              key={m.id}
-              style={{
-                display: "flex",
-                justifyContent: isUser ? "flex-end" : "flex-start",
-              }}
-            >
-              <div
-                style={{
-                  maxWidth: "92%",
-                  whiteSpace: "pre-wrap",
-                  borderRadius: 14,
-                  padding: "10px 12px",
-                  border: "1px solid rgba(0,0,0,0.12)",
-                  background: isUser ? "#fff" : "rgba(255,255,255,0.9)",
-                }}
-              >
-                <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6, fontWeight: 700 }}>
-                  {isUser ? "You" : "QFM"}
-                </div>
-                <div style={{ fontSize: 13, lineHeight: 1.35 }}>{m.content}</div>
-              </div>
+      {subTab === "description" ? (
+        <>
+          <div className="qfm-card">
+            <div className="qfm-card-title">How to use</div>
+            <div className="qfm-card-sub">
+              1) Click <b>Rewrite Description</b> to generate a first draft. <br />
+              2) Then send feedback (sections, tone, what to mention) and I’ll refine it.
             </div>
-          );
-        })}
-      </div>
+            <div className="qfm-inline-warn">
+              Example: <i>“Make it shorter, include Links/Credits/Disclaimer, mention Champions League.”</i>
+            </div>
+          </div>
 
-      {/* Composer */}
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          rows={2}
-          placeholder={
-            currentDraft
-              ? `Give feedback (e.g. "Add Links/Credits/Disclaimer, mention Champions League…")`
-              : `Click "Rewrite Description" first to get a draft, then refine it here…`
-          }
-          style={{
-            flex: 1,
-            resize: "none",
-            borderRadius: 12,
-            border: "1px solid rgba(0,0,0,0.2)",
-            padding: "10px 10px",
-            fontSize: 13,
-          }}
-          disabled={busy}
-          onKeyDown={(e) => {
-            // Enter to send, Shift+Enter for newline
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
-        />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="qfm-btn-secondary" onClick={generateFirstDescription} disabled={descBusy}>
+              Rewrite Description
+            </button>
+            <button
+              className="qfm-btn-secondary"
+              onClick={() => navigator.clipboard.writeText(currentDraft)}
+              disabled={!currentDraft}
+              title="Copies the latest generated draft"
+            >
+              Copy draft
+            </button>
+          </div>
 
-        <button className="qfm-btn-primary" onClick={sendMessage} disabled={busy || !input.trim() || !currentDraft}>
-          Send
-        </button>
-      </div>
+          <div className="qfm-muted">{descStatus}</div>
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          className="qfm-btn-secondary"
-          onClick={() => navigator.clipboard.writeText(currentDraft)}
-          disabled={!currentDraft}
-          title="Copies the latest generated description draft"
-        >
-          Copy draft
-        </button>
-      </div>
+          {/* Chat thread (ONLY description-related messages) */}
+          <div
+            ref={chatListRef}
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflow: "auto",
+              border: "1px solid rgba(0,0,0,0.12)",
+              borderRadius: 14,
+              padding: 10,
+              background: "rgba(0,0,0,0.02)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {descMessages.length === 0 ? (
+              <div className="qfm-muted">No messages yet. Click “Rewrite Description” to start.</div>
+            ) : (
+              descMessages.map((m) => {
+                const isUser = m.role === "user";
+                return (
+                  <div key={m.id} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start" }}>
+                    <div
+                      style={{
+                        maxWidth: "92%",
+                        whiteSpace: "pre-wrap",
+                        borderRadius: 14,
+                        padding: "10px 12px",
+                        border: "1px solid rgba(0,0,0,0.12)",
+                        background: "#fff",
+                      }}
+                    >
+                      <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 6, fontWeight: 800 }}>
+                        {isUser ? "You" : "QFM"}
+                      </div>
+                      <div style={{ fontSize: 13, lineHeight: 1.35 }}>{m.content}</div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Composer */}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+            <textarea
+              value={descInput}
+              onChange={(e) => setDescInput(e.target.value)}
+              rows={2}
+              placeholder={
+                currentDraft
+                  ? `Give feedback (e.g. "Shorter + include Links/Credits/Disclaimer + mention Champions League")`
+                  : `Click "Rewrite Description" first…`
+              }
+              style={{
+                flex: 1,
+                resize: "none",
+                borderRadius: 12,
+                border: "1px solid rgba(0,0,0,0.2)",
+                padding: "10px 10px",
+                fontSize: 13,
+              }}
+              disabled={descBusy || !currentDraft}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  sendDescMessage();
+                }
+              }}
+            />
+            <button className="qfm-btn-primary" onClick={sendDescMessage} disabled={descBusy || !descInput.trim() || !currentDraft}>
+              Send
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Chapters tab (separate tool + separate output) */}
+          <div className="qfm-card">
+            <div className="qfm-card-title">Chapters</div>
+            <div className="qfm-card-sub">
+              Click <b>Generate Chapters</b> to get timestamps and titles (kept within the video duration).
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="qfm-btn-secondary" onClick={generateChapters} disabled={chapBusy}>
+              Generate Chapters
+            </button>
+            <button
+              className="qfm-btn-secondary"
+              onClick={() => navigator.clipboard.writeText(chapResult)}
+              disabled={!chapResult}
+              title="Copies the chapter JSON"
+            >
+              Copy
+            </button>
+          </div>
+
+          <div className="qfm-muted">{chapStatus}</div>
+
+          <textarea
+            value={chapResult}
+            readOnly
+            rows={12}
+            style={{
+              width: "100%",
+              flex: 1,
+              minHeight: 0,
+              borderRadius: 12,
+              border: "1px solid rgba(0,0,0,0.2)",
+              padding: 10,
+              fontSize: 12,
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }
