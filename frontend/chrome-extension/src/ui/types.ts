@@ -23,3 +23,18 @@ export type Issue = {
   ok: boolean;
   note?: string;
 };
+
+export type MetaPayload = Partial<{
+  videoId: string;
+  title: string;
+  description: string;
+  tags: string[];
+  durationSeconds: number;
+}>;
+
+
+export type ChatMsg = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+}

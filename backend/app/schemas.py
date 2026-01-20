@@ -15,10 +15,21 @@ class LlmTask(str):
     pass
 
 
+class ChatMessage(BaseModel):
+    role: Literal["assistant", "user"]
+    content: str
+
+
+class ChatPayload(BaseModel):
+    current_draft: str = Field(default=None, alias="currentDraft")
+    messages: List[ChatMessage] = Field(default_factory=list)
+
+
 class LlmSuggestRequest(BaseModel):
     task: Literal["rewrite_description", "chapters"]
     video: VideoMetadata
     styleProfile: Optional[str] = None
+    chat: Optional[ChatPayload] = None
 
 
 class Chapter(BaseModel):
@@ -30,3 +41,7 @@ class LlmSuggestResponse(BaseModel):
     description: Optional[str] = None
     chapters: Optional[List[Chapter]] = None
     notes: List[str] = Field(default_factory=list)
+
+
+
+

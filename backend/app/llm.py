@@ -1,7 +1,7 @@
 import json
 from openai import OpenAI
 
-from app.schemas import LlmSuggestRequest, LlmSuggestResponse
+from app.schemas import LlmSuggestRequest, LlmSuggestResponse, ChatMessage, ChatPayload
 
 
 def _parse_ts_to_seconds(ts: str) -> int | None:
@@ -65,30 +65,100 @@ def _schema_for_task(task: str) -> dict:
     }
 
 
+def _get_last_user_message(req: LlmSuggestRequest) -> str:
+    chat = getattr(req, "chat", None)
+    if chat is None:
+        return ""
+    messages = getattr(chat, "messages", [])
+    for m in reversed(messages):
+        if getattr(m, "role", "") == "user":
+            return getattr(m, "content", "").strip()
+    return ""
+
+
+def _get_current_draft(req: LlmSuggestRequest) -> str:
+    chat = getattr(req, "chat", None)
+    if chat is None:
+        return ""
+    return getattr(chat, "current_draft", "").strip()
+
+
+def build_prompt(req: LlmSuggestRequest) -> str:
+    user_feedback = _get_last_user_message(req)
+    base_desc = (req.video.description or "").strip()
+    current_draft = _get_current_draft(req) or base_desc
+
+    system_prompt = (
+        "You are a YouTube Studio writing assistant.\n"
+        "Return ONLY valid JSON that matches the provided JSON schema.\n"
+        "No markdown, no extra keys.\n"
+    )
+
+    if user_feedback:
+        user_answer = f"""
+Update the YouTube description based on the user's feedback.
+
+VIDEO
+Title: {req.video.title}
+Tags: {", ".join(req.video.tags)}
+
+CURRENT DESCRIPTION (edit this)
+{current_draft}
+
+USER FEEDBACK (highest priority)
+{user_feedback}
+
+RULES
+- Keep it ready to paste into YouTube Studio.
+- Keep it concise and readable.
+- Do not invent specific facts or links unless the user provided them.
+
+Return the full updated description in "description" and brief bullet notes in "notes".
+""".strip()
+    else:
+        user_answer = f"""
+Write a polished YouTube description.
+
+VIDEO
+Title: {req.video.title}
+Existing description: {base_desc}
+Tags: {", ".join(req.video.tags)}
+
+RULES
+- Keep it concise and readable.
+- Do not invent specific facts or links.
+
+Return the full description in "description" and brief bullet notes in "notes".
+""".strip()
+
+    return f"{system_prompt}\n\n{user_answer}"
+
 
 def suggest(client: OpenAI, model: str, req: LlmSuggestRequest) -> LlmSuggestResponse:
     schema = _schema_for_task(req.task)
     dur = req.video.durationSeconds
 
+    if req.task == "rewrite_description":
+        prompt = build_prompt(req)
     
-    prompt = f"""
-    You are a YouTube operations assistant.
+    else: 
+        prompt = f"""
+You are a YouTube operations assistant.
 
-    Task: {req.task}
-    Video title: {req.video.title}
-    Video description: {req.video.description}
-    Video tags: {", ".join(req.video.tags)}
-    Video duration seconds: {dur if dur is not None else "unknown"}
-    Style profile: {req.styleProfile or "default concise, clear, brand-safe"}
+Task: chapters
+Video title: {req.video.title}
+Video description: {(req.video.description or "").strip()}
+Video tags: {", ".join(req.video.tags)}
+Video duration seconds: {dur if dur is not None else "unknown"}
 
-    If task is "chapters":
-    - Use timestamps that fit within the video duration.
-    - Do NOT output any timestamp greater than the duration.
-    - For very short videos (< 60s), output 1-3 chapters max.
-    - The first chapter should start at 00:00.
+RULES
+- The first chapter MUST start at 00:00.
+- Use timestamps that fit within the video duration.
+- Do NOT output any timestamp greater than the duration.
+- For very short videos (< 60s), output 1–3 chapters max.
 
-    Return ONLY valid JSON that matches the provided schema.
-    """.strip()
+Return ONLY valid JSON that matches the provided schema.
+""".strip()
 
     resp = client.responses.create(
         model=model,
