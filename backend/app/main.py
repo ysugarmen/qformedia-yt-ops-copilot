@@ -16,14 +16,11 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="YT Ops Copilot Backend", lifespan=lifespan)
-
+settings = get_settings()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "chrome-extension://dlcnbbibellchcaoejijciahcaofdefd",
-        "https://studio.youtube.com"
-    ],
+    allow_origins=settings.CORS_ORIGINS.split(",") if settings.CORS_ORIGINS else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

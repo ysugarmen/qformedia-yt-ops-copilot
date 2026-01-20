@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { pushHistory } from "../storage";
 import type { Rule, Issue } from "../types";
+import { generateId } from "../../utils";
 
 type Props = { backendUrl: string };
-
-function uuid() {
-    return crypto.randomUUID();
-}
 
 function formatDuration (seconds?: number) {
     if (typeof seconds !== "number" || !isFinite(seconds) || seconds < 0) return "-";
@@ -191,7 +188,7 @@ export function ScanTab({ backendUrl }: Props) {
       }
 
       const record = {
-        id: uuid(),
+        id: generateId(),
         createdAt: new Date().toISOString(),
         url: window.location.href,
         title: title || "(no title)",

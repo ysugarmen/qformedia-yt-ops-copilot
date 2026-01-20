@@ -1,4 +1,3 @@
-# backend/app/rules.py
 
 RULES = [
     {

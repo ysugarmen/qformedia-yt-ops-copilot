@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = None
     OPENAI_MODEL: str = "gpt-4.1-mini"
 
+    # CORS
+    CORS_ORIGINS: str = Field(default="chrome-extension://*,https://studio.youtube.com")
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -1,32 +1,10 @@
 import { useMemo, useRef, useState } from "react";
+import type { MetaPayload, ChatMsg } from "../types";
+import { generateId, getVideoIdFromUrl } from "../../utils";
 
 type Props = { backendUrl: string };
 
 type SubTab = "chapters" | "description";
-
-type MetaPayload = Partial<{
-  videoId: string;
-  title: string;
-  description: string;
-  tags: string[];
-  durationSeconds: number;
-}>;
-
-type ChatMsg = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-};
-
-function uid() {
-  return Math.random().toString(16).slice(2) + Date.now().toString(16);
-}
-
-function getVideoIdFromUrl(): string | null {
-  // e.g. https://studio.youtube.com/video/3Kox6gWHPK8/edit
-  const m = window.location.pathname.match(/\/video\/([^/]+)\//);
-  return m?.[1] ?? null;
-}
 
 async function getStudioMeta(timeoutMs = 2000): Promise<MetaPayload> {
   return await new Promise((resolve) => {
@@ -137,7 +115,7 @@ export function LlmTab({ backendUrl }: Props) {
       setCurrentDraft(draft);
 
       // reset chat for this new draft (clean separation)
-      setDescMessages(draft ? [{ id: uid(), role: "assistant", content: draft }] : []);
+      setDescMessages(draft ? [{ id: generateId(), role: "assistant", content: draft }] : []);
       scrollChatToBottom();
 
       setDescStatus("Done.");
@@ -145,7 +123,7 @@ export function LlmTab({ backendUrl }: Props) {
       setDescStatus(`Error: ${e?.message ?? String(e)}`);
       setDescMessages((prev) => [
         ...prev,
-        { id: uid(), role: "assistant", content: `❌ ${e?.message ?? String(e)}` },
+        { id: generateId(), role: "assistant", content: `❌ ${e?.message ?? String(e)}` },
       ]);
       scrollChatToBottom();
     } finally {
@@ -158,7 +136,7 @@ export function LlmTab({ backendUrl }: Props) {
     if (!text || descBusy) return;
 
     setDescInput("");
-    setDescMessages((prev) => [...prev, { id: uid(), role: "user", content: text }]);
+    setDescMessages((prev) => [...prev, { id: generateId(), role: "user", content: text }]);
     scrollChatToBottom();
 
     try {
@@ -193,7 +171,7 @@ export function LlmTab({ backendUrl }: Props) {
 
       setDescMessages((prev) => [
         ...prev,
-        { id: uid(), role: "assistant", content: nextDraft || "(No description returned.)" },
+        { id: generateId(), role: "assistant", content: nextDraft || "(No description returned.)" },
       ]);
       scrollChatToBottom();
       setDescStatus("Done.");
@@ -201,7 +179,7 @@ export function LlmTab({ backendUrl }: Props) {
       setDescStatus(`Error: ${e?.message ?? String(e)}`);
       setDescMessages((prev) => [
         ...prev,
-        { id: uid(), role: "assistant", content: `❌ ${e?.message ?? String(e)}` },
+        { id: generateId(), role: "assistant", content: `❌ ${e?.message ?? String(e)}` },
       ]);
       scrollChatToBottom();
     } finally {

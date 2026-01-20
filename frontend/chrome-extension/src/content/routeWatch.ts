@@ -26,6 +26,7 @@ export function watchSpaRoutes(onChange: RouteCallBack) {
 
     window.addEventListener('popstate', notifyIfChanged);
     const mo = new MutationObserver(() => notifyIfChanged())
+    mo.observe(document.body, { subtree: true, childList: true });
 
     return () => {
         window.removeEventListener('popstate', notifyIfChanged);

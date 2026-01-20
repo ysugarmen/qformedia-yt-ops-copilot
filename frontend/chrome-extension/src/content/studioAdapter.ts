@@ -1,3 +1,5 @@
+import { getVideoIdFromUrl } from "../utils";
+
 export type StudioVideoMetadata = {
   videoId?: string;
   title?: string;
@@ -5,11 +7,6 @@ export type StudioVideoMetadata = {
   tags?: string[];
   durationSeconds?: number;
 };
-
-function getVideoIdFromUrl(): string | undefined {
-  const m = window.location.pathname.match(/\/video\/([^/]+)\//);
-  return m?.[1];
-}
 
 function parseTimeToSeconds(t: string): number | null {
   const parts = t.trim().split(":").map(Number);

@@ -66,21 +66,18 @@ def _schema_for_task(task: str) -> dict:
 
 
 def _get_last_user_message(req: LlmSuggestRequest) -> str:
-    chat = getattr(req, "chat", None)
-    if chat is None:
+    if not req.chat or not req.chat.messages:
         return ""
-    messages = getattr(chat, "messages", [])
-    for m in reversed(messages):
-        if getattr(m, "role", "") == "user":
-            return getattr(m, "content", "").strip()
+    for m in reversed(req.chat.messages):
+        if m.role == "user":
+            return m.content.strip()
     return ""
 
 
 def _get_current_draft(req: LlmSuggestRequest) -> str:
-    chat = getattr(req, "chat", None)
-    if chat is None:
+    if not req.chat or not req.chat.current_draft:
         return ""
-    return getattr(chat, "current_draft", "").strip()
+    return req.chat.current_draft.strip()
 
 
 def build_prompt(req: LlmSuggestRequest) -> str:

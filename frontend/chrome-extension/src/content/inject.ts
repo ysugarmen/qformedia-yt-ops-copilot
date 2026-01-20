@@ -31,7 +31,6 @@ function removeRoot() {
 
 async function mountSidebar() {
     const root = ensureRoot();
-    console.log("[QFM] mountSidebar called");
   
     root.innerHTML = `<div style="position:fixed;top:20px;right:20px;z-index:999999;background:yellow;padding:10px;border:1px solid #000">
       QFM TEST BOX

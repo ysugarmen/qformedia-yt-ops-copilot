@@ -11,10 +11,6 @@ class VideoMetadata(BaseModel):
     durationSeconds: Optional[int] = None
 
 
-class LlmTask(str):
-    pass
-
-
 class ChatMessage(BaseModel):
     role: Literal["assistant", "user"]
     content: str
